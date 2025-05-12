@@ -1,0 +1,36 @@
+name: Run Slack Daily Tracker
+
+on:
+  schedule:
+    - cron: '30 13 * * *'  # Runs at 7:00 PM IST (13:30 UTC)
+  workflow_dispatch:        # Allows manual trigger from GitHub UI
+
+jobs:
+  run-script:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install slack_sdk openpyxl pytz
+
+    - name: Run Slack Daily Script
+      env:
+        SLACK_TOKEN: ${{ secrets.SLACK_TOKEN }}
+        CHANNEL_ID: ${{ secrets.CHANNEL_ID }}
+        EXCEL_FILE: ${{ secrets.EXCEL_FILE }}
+        YOUR_USER_ID: ${{ secrets.MY_USER_ID }}
+        POST_MODE: ${{ secrets.POST_MODE }}
+        BASE_EXCLUDED_USERS: ${{ secrets.EXCLUDED_USERS }}
+        SATURDAY_SKIP_USERS: ${{ secrets.EXCLUDED_USERS }}
+      run: |
+        python update_slack_log_env.py
