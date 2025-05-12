@@ -2,7 +2,7 @@ name: Run Slack Daily Tracker
 
 on:
   schedule:
-    - cron: '30 13 * * *'  # Runs at 7:00 PM IST (13:30 UTC)
+    - cron: '30 14 * * *'  # Runs at 8:00 PM IST (13:30 UTC)
   workflow_dispatch:        # Allows manual trigger from GitHub UI
 
 jobs:
