@@ -1,19 +1,19 @@
+
 import os
 from slack_sdk import WebClient
 import openpyxl
 from datetime import datetime, timedelta
 import pytz
 
-# === CONFIGURATION FROM ENV VARIABLES ===
+# === CONFIGURATION from ENV ===
 SLACK_TOKEN = os.environ.get("SLACK_TOKEN")
 CHANNEL_ID = os.environ.get("CHANNEL_ID")
 EXCEL_FILE = os.environ.get("EXCEL_FILE")
-MY_USER_ID = os.environ.get("MY_USER_ID")
-POST_TO_CHANNEL = os.environ.get("POST_MODE", "channel") == "channel"
+YOUR_USER_ID = os.environ.get("YOUR_USER_ID")
+POST_TO_CHANNEL = os.environ.get("POST_MODE", "channel").lower() == "channel"
 
-# Optional: Parse excluded users from comma-separated env var
-excluded = os.environ.get("EXCLUDED_USERS", "")
-EXCLUDED_USERS = set(excluded.split(",")) if excluded else set()
+BASE_EXCLUDED_USERS = set(os.environ.get("BASE_EXCLUDED_USERS", "").split(","))
+SATURDAY_SKIP_USERS = set(os.environ.get("SATURDAY_SKIP_USERS", "").split(","))
 
 client = WebClient(token=SLACK_TOKEN)
 
@@ -37,7 +37,8 @@ def fetch_messages():
 
     users = {}
     for msg in messages:
-        if 'user' not in msg: continue
+        if 'user' not in msg:
+            continue
         user = msg['user']
         ts = float(msg['ts'])
         time = datetime.fromtimestamp(ts, tz)
@@ -79,9 +80,9 @@ def get_all_user_ids_in_channel():
     return user_ids
 
 def get_excluded_users(reporting_day):
-    weekday = reporting_day.weekday()  # Monday = 0, Sunday = 6
+    weekday = reporting_day.weekday()
     if weekday == 6:
-        return "ALL"  # Sunday
+        return "ALL"
     elif weekday == 5:
         return BASE_EXCLUDED_USERS.union(SATURDAY_SKIP_USERS)
     else:
@@ -90,18 +91,15 @@ def get_excluded_users(reporting_day):
 def write_to_excel(user_data, date):
     wb = openpyxl.load_workbook(EXCEL_FILE)
     ws = wb.active
-    
-    ws.delete_rows(2, ws.max_row)
-    
+    ws.delete_rows(2, ws.max_row)  # Clear all but header
+
     date_str = date.strftime("%Y-%m-%d")
-
-    all_users = get_all_user_ids_in_channel()
-
     excluded_users = get_excluded_users(date)
     if excluded_users == "ALL":
         print("🛑 Sunday — skipping all users.")
         return
 
+    all_users = get_all_user_ids_in_channel()
     for user_id in all_users:
         if user_id in excluded_users:
             continue
@@ -121,42 +119,36 @@ def write_to_excel(user_data, date):
 
 def send_reminder(missing_user_ids):
     if not missing_user_ids:
+        print("✅ No users to remind.")
         return
 
     mentions = " ".join([f"<@{uid}>" for uid in missing_user_ids])
     message = (
-        f"👋 These users haven’t posted their evening update yet:\n"
-        f"{mentions}\n\nPlease follow up."
+        "🚨 *DAILY TASK REMINDER*\n\n"
+        f"These users missed their evening update:\n"
+        f"{mentions}\n\nPlease check!"
     )
 
     target = CHANNEL_ID if POST_TO_CHANNEL else YOUR_USER_ID
-    print("Sending message to:", target)
-    client.chat_postMessage(
-        channel=target,
-        text=message
-    )
+    client.chat_postMessage(channel=target, text=message)
+    print(f"📬 Reminder sent to: {target}")
 
 def is_evening_or_early():
     now = datetime.now(pytz.timezone("Asia/Kolkata"))
-#    return 17 <= now.hour < 24 or 0 <= now.hour < 6
-    return 11 <= now.hour < 24 or 0 <= now.hour < 6
-
+    return 17 <= now.hour < 24 or 0 <= now.hour < 6
 
 def main():
     user_data, reporting_day = fetch_messages()
-    all_user_ids = get_all_user_ids_in_channel()
     excluded_users = get_excluded_users(reporting_day)
-
     if excluded_users == "ALL":
-        print(" Sunday — skipping log and reminders.")
+        print("🛑 Sunday — skipping log and reminders.")
         return
-      
-#  uncomment the line below if you want to write the user info to an excel.
-#    write_to_excel(user_data, reporting_day)
+
+    all_user_ids = get_all_user_ids_in_channel()
+    write_to_excel(user_data, reporting_day)
 
     if is_evening_or_early():
-        print("DM window active (5 PM – 6 AM)")
-
+        print("⏱ DM window active (5 PM – 6 AM)")
         incomplete_evening_users = [
             uid for uid in all_user_ids
             if uid not in excluded_users and
@@ -164,16 +156,10 @@ def main():
                user_data[uid].get('morning') and
                not user_data[uid].get('evening')
         ]
-
         print("Users to be reminded:", incomplete_evening_users)
-
-        if not incomplete_evening_users:
-            print(" No reminder needed — all users posted.")
-        else:
-            send_reminder(incomplete_evening_users)
-            print(" Reminder sent.")
+        send_reminder(incomplete_evening_users)
     else:
-        print(" Not in DM window — no reminder sent.")
+        print("⏱ Not in DM window — no reminder sent.")
 
 if __name__ == "__main__":
-    main() 
+    main()
