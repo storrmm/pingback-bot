@@ -159,7 +159,7 @@ def main():
         print("Users to be reminded:", incomplete_evening_users)
         send_reminder(incomplete_evening_users)
     else:
-        print("⏱ Not in DM window — no reminder sent.")
+        print("⏱ Not in DM window | no reminder sent.")
 
 if __name__ == "__main__":
     main()
