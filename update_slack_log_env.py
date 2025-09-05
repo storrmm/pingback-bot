@@ -5,6 +5,7 @@ import openpyxl
 from datetime import datetime, timedelta
 import pytz
 
+# nada
 # === CONFIGURATION from ENV ===
 SLACK_TOKEN = os.environ.get("SLACK_TOKEN")
 CHANNEL_ID = os.environ.get("CHANNEL_ID")
