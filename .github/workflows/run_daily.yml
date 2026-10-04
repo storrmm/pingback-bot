@@ -5,16 +5,19 @@ on:
     - cron: '0 14 * * *'   # 7:30 PM IST (14:00 UTC)
   workflow_dispatch:
 
+permissions: 
+  contents: write
+  
 jobs:
   run-script:
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
@@ -44,12 +47,10 @@ jobs:
           python update_slack_log_env.py
       
       - name: Keep repository active
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           date -u > last_run.txt
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add last_run.txt
-      # Only commit if there are changes
-      git diff --quiet && git diff --staged --quiet || (git commit -m "chore: update heartbeat [skip ci]" && git push)
+          # Only commit if there are changes
+          git diff --quiet && git diff --staged --quiet || (git commit -m "chore: update heartbeat [skip ci]" && git push)
